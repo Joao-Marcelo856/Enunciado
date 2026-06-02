@@ -1,0 +1,60 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enunciado</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="form-section">
+            <h2>Cadastro de Leitores</h2>
+
+            <input type="text" id="auth-user" class="auth-input" placeholder="Nome completo">
+            <input type="text" id="auth-cpf" class="auth-input" placeholder="CPF">
+            <input type="email" id="auth-email" class="auth-input" placeholder="E-mail">
+
+            <button id="auth-submit-btn" class="btn btn-primary">
+                Cadastrar
+            </button>
+            <p id="message" class="message"></p>
+        </div>
+
+        <div class="list-section">
+            <h2>Leitores Cadastrados</h2>
+            <ul id="readers-list" class="readers-list"></ul>
+        </div>
+
+
+        <div class="loan-section">
+            <h2>Empréstimo</h2>
+            <div id="selected-reader" class="selected-card">Nenhum leitor selecionado</div>
+            <div id="selected-book" class="selected-card">Nenhum livro selecionado</div>
+            <button id="loan-finalize-btn" class="btn btn-primary">
+                Finalizar Empréstimo
+            </button>
+            <p id="loan-message" class="message"></p>
+        </div>
+
+        <div class="search-section">
+            <h2>Buscar Livros</h2>
+            <input type="text" id="book-search" class="auth-input" placeholder="Digite o nome do livro">
+            <button id="book-search-btn" class="btn btn-primary">Buscar</button>
+            <div id="books-results" class="books-results"></div>
+        </div>
+
+        <div class="loans-section">
+            <h2>Empréstimos Ativos</h2>
+            <div id="loans-list" class="loans-list"></div>
+        </div>
+
+        <div id="viewerCanvas" style="width: 600px; height: 500px"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
