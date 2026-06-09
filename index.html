@@ -9,7 +9,39 @@
 </head>
 
 <body>
-    <div class="container">
+    <div id="login-screen" class="login-screen">
+        <h2 id="login-heading">Login</h2>
+        <input type="text" id="login-username" class="auth-input" placeholder="Nome de usuário">
+        <input type="password" id="login-password" class="auth-input" placeholder="Senha">
+
+        <div id="login-controls">
+            <button id="login-btn" class="btn btn-primary">Entrar</button>
+            <button id="register-btn" class="btn btn-primary">Criar Conta</button>
+        </div>
+
+
+        <p id="login-message" class="message"></p>
+
+
+        <div id="register-form" style="display: none; margin-top: 10px;">
+            <input type="password" id="register-password-confirm" class="auth-input" placeholder="Confirmar senha">
+            <div id="register-controls" style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+                <button id="register-submit-btn" class="btn btn-primary">Criar Conta</button>
+                <button id="register-cancel-btn" class="btn btn-danger">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container" id="app-container">
+
+        <div id="user-info" class="user-info">Nenhum usuário</div>
+
+
+        <div id="admin-controls" style="display: none; text-align: center; gap: 8px; margin: 10px 0;">
+            <button id="admin-tab-manage" class="btn btn-primary">Gerenciamento</button>
+            <button id="admin-tab-loans" class="btn btn-primary">Empréstimos</button>
+        </div>
+
         <div class="form-section">
             <h2>Cadastro de Leitores</h2>
 

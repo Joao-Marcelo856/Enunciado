@@ -1,5 +1,8 @@
 const STORAGE_KEY = "readers";
 const LOANS_STORAGE_KEY = "loans";
+const USERS_STORAGE_KEY = "users";
+const CURRENT_USER_KEY = "currentUser";
+const CURRENT_USER_ROLE_KEY = "currentUserRole";
 
 const authUserInput = document.getElementById("auth-user");
 const authCpfInput = document.getElementById("auth-cpf");
@@ -16,11 +19,50 @@ const selectedBookEl = document.getElementById("selected-book");
 const authMessageEl = document.getElementById("message");
 const loanMessageEl = document.getElementById("loan-message");
 
+// novos elementos de login
+const loginScreenEl = document.getElementById("login-screen");
+const loginUsernameInput = document.getElementById("login-username");
+const loginPasswordInput = document.getElementById("login-password");
+const loginBtn = document.getElementById("login-btn");
+const registerBtn = document.getElementById("register-btn");
+const loginMessageEl = document.getElementById("login-message"); // Corrigido aqui
+const userInfoEl = document.getElementById("user-info");
+
+// novos elementos de registro
+const registerControlsEl = document.getElementById("register-controls");
+const registerSubmitBtn = document.getElementById("register-submit-btn");
+const registerCancelBtn = document.getElementById("register-cancel-btn");
+const registerPasswordConfirmInput = document.getElementById("register-password-confirm");
+const loginHeadingEl = document.getElementById("login-heading");
+
+// novos elementos para controle admin
+const adminControlsEl = document.getElementById("admin-controls");
+const adminTabManageBtn = document.getElementById("admin-tab-manage");
+const adminTabLoansBtn = document.getElementById("admin-tab-loans");
+
+let currentUser = null;
+let currentUserRole = null;
 let selectedReader = null;
 let selectedBooks = [];
 
 const isValidCPF = cpf => cpf.replace(/\D/g, "").length === 11;
 const isValidEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// Funções para exibir/ocultar registro que estavam faltando:
+function showRegisterForm() {
+    loginHeadingEl.textContent = "Criar Conta";
+    document.getElementById("register-form").style.display = "block";
+    registerBtn.style.display = "none";
+    loginBtn.style.display = "none";
+}
+
+function hideRegisterForm() {
+    loginHeadingEl.textContent = "Login";
+    document.getElementById("register-form").style.display = "none";
+    registerBtn.style.display = "inline-block";
+    loginBtn.style.display = "inline-block";
+    registerPasswordConfirmInput.value = "";
+}
 
 // API / data layer
 const readersStorage = {
@@ -60,19 +102,54 @@ const loansStorage = {
     }
 };
 
+const usersStorage = {
+    getAll() {
+        return JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || "[]");
+    },
+    save(users) {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    },
+    find(username) {
+        return this.getAll().find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
+    },
+    exists(username) {
+        return this.getAll().some(u => u.username.toLowerCase() === username.toLowerCase());
+    },
+    add(user) {
+        const users = this.getAll();
+        users.push(user);
+        this.save(users);
+    }
+};
+
 function fetchBooks(query) {
-    return fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=10`)
-        .then(response => response.json())
-        .then(data => data.docs);
+    return fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20`)
+        .then(response => {
+            if (!response.ok) throw new Error("Network response was not ok");
+            return response.json();
+        })
+        .then(data => data.docs || [])
+        .catch(err => {
+            console.error("Erro ao buscar livros:", err);
+            throw err;
+        });
 }
 
-// UI / screen manipulation
 function showMessage(text, type, element) {
     element.textContent = text;
     element.className = `message ${type}`;
     setTimeout(() => {
         element.textContent = "";
         element.className = "message";
+    }, 3000);
+}
+
+function showLoginMessage(text, type) {
+    loginMessageEl.textContent = text;
+    loginMessageEl.className = `message ${type}`;
+    setTimeout(() => {
+        loginMessageEl.textContent = "";
+        loginMessageEl.className = "message";
     }, 3000);
 }
 
@@ -87,7 +164,6 @@ function updateSelectedReaderUI() {
         selectedReaderEl.textContent = "Nenhum leitor selecionado";
         return;
     }
-
     selectedReaderEl.innerHTML = `
         <p><strong>Leitor:</strong> ${selectedReader.username}</p>
         <p><strong>CPF:</strong> ${selectedReader.cpf}</p>
@@ -228,7 +304,6 @@ function renderBooksResults(books) {
     booksResultsEl.appendChild(fragment);
 }
 
-// Handlers
 function handleAuth() {
     const username = authUserInput.value.trim();
     const cpf = authCpfInput.value.trim();
@@ -262,12 +337,10 @@ function handleAuth() {
 
 function deleteReader(cpf) {
     readersStorage.remove(cpf);
-
     if (selectedReader?.cpf === cpf) {
         selectedReader = null;
         updateSelectedReaderUI();
     }
-
     renderReadersList();
 }
 
@@ -324,18 +397,185 @@ function searchBooks() {
 
     fetchBooks(query)
         .then(renderBooksResults)
-        .catch(() => {
+        .catch((err) => {
+            console.error("searchBooks error:", err);
             booksResultsEl.innerHTML = '<div class="no-results">Erro ao buscar livros</div>';
+            showMessage("Erro ao buscar livros. Veja console para detalhes.", "error", loanMessageEl);
         });
 }
 
+function registerUser() {
+    const username = loginUsernameInput.value.trim();
+    const password = loginPasswordInput.value;
+    const passwordConfirm = registerPasswordConfirmInput.value;
+
+    if (!username || !password) {
+        showLoginMessage("Preencha usuário e senha", "error");
+        return;
+    }
+
+    if (password !== passwordConfirm) {
+        showLoginMessage("As senhas não coincidem", "error");
+        return;
+    }
+
+    if (usersStorage.exists(username)) {
+        showLoginMessage("Usuário já existe", "error");
+        return;
+    }
+
+    usersStorage.add({ username, password, role: "reader" });
+    showLoginMessage("Conta criada com sucesso. Faça login.", "success");
+    loginUsernameInput.value = "";
+    loginPasswordInput.value = "";
+    hideRegisterForm();
+}
+
+function loginUser() {
+    const username = loginUsernameInput.value.trim();
+    const password = loginPasswordInput.value;
+
+    if (!username || !password) {
+        showLoginMessage("Preencha usuário e senha", "error");
+        return;
+    }
+
+    if (username === "admin" && password === "admin") {
+        currentUser = "admin";
+        currentUserRole = "admin";
+        localStorage.setItem(CURRENT_USER_KEY, currentUser);
+        localStorage.setItem(CURRENT_USER_ROLE_KEY, currentUserRole);
+        updateUserInfoUI();
+        toggleApp(true);
+        showLoginMessage("Login realizado (admin)", "success");
+        loginUsernameInput.value = "";
+        loginPasswordInput.value = "";
+        return;
+    }
+
+    const user = usersStorage.find(username);
+    if (!user || user.password !== password) {
+        showLoginMessage("Usuário ou senha inválidos", "error");
+        return;
+    }
+
+    currentUser = user.username;
+    currentUserRole = user.role || "reader";
+    localStorage.setItem(CURRENT_USER_KEY, currentUser);
+    localStorage.setItem(CURRENT_USER_ROLE_KEY, currentUserRole);
+    updateUserInfoUI();
+    toggleApp(true);
+    showLoginMessage("Login realizado", "success");
+    loginUsernameInput.value = "";
+    loginPasswordInput.value = "";
+}
+
+function logoutUser() {
+    currentUser = null;
+    currentUserRole = null;
+    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem(CURRENT_USER_ROLE_KEY);
+    updateUserInfoUI();
+    toggleApp(false);
+}
+
+function toggleApp(visible) {
+    const app = document.getElementById("app-container");
+    if (!visible) {
+        app.classList.add("hidden");
+        loginScreenEl.style.display = "block";
+    } else {
+        app.classList.remove("hidden");
+        loginScreenEl.style.display = "none";
+    }
+}
+
+function updateUserInfoUI() {
+    if (!currentUser) {
+        userInfoEl.textContent = "Nenhum usuário";
+        return;
+    }
+    const roleLabel = currentUserRole === "admin" ? "Admin" : "Leitor";
+    userInfoEl.innerHTML = `Logado como <strong>${currentUser}</strong> <small>(${roleLabel})</small> <button id="logout-btn" class="btn btn-danger" type="button">Sair</button>`;
+    const logoutBtnEl = document.getElementById("logout-btn");
+    logoutBtnEl.addEventListener("click", logoutUser);
+
+    updateAppForRole();
+}
+
+function updateAppForRole() {
+    const formSection = document.querySelector(".form-section");
+    const searchSection = document.querySelector(".search-section");
+    const loanSection = document.querySelector(".loan-section");
+    const listSection = document.querySelector(".list-section");
+    const loansSection = document.querySelector(".loans-section");
+
+    if (currentUserRole === "admin") {
+        if (formSection) formSection.style.display = "none";
+        if (searchSection) searchSection.style.display = "none";
+        if (loanSection) loanSection.style.display = "none";
+        if (listSection) listSection.style.display = "block";
+        if (loansSection) loansSection.style.display = "block";
+        if (adminControlsEl) adminControlsEl.style.display = "block";
+        showAdminTab("manage");
+    } else {
+        if (formSection) formSection.style.display = "";
+        if (searchSection) searchSection.style.display = "";
+        if (loanSection) loanSection.style.display = "";
+        if (listSection) listSection.style.display = "";
+        if (loansSection) loansSection.style.display = "";
+        if (adminControlsEl) adminControlsEl.style.display = "none";
+    }
+}
+
+function showAdminTab(tab) {
+    const listSection = document.querySelector(".list-section");
+    const loansSection = document.querySelector(".loans-section");
+
+    if (tab === "manage") {
+        if (listSection) listSection.style.display = "block";
+        if (loansSection) loansSection.style.display = "none";
+    } else if (tab === "loans") {
+        if (listSection) listSection.style.display = "none";
+        if (loansSection) loansSection.style.display = "block";
+    }
+}
+
 function initEventListeners() {
-    authSubmitBtn.addEventListener("click", handleAuth);
-    bookSearchBtn.addEventListener("click", searchBooks);
-    loanFinalizeBtn.addEventListener("click", finalizeLoan);
+    if (loginBtn) loginBtn.addEventListener("click", loginUser);
+    if (registerBtn) registerBtn.addEventListener("click", showRegisterForm);
+    if (registerSubmitBtn) registerSubmitBtn.addEventListener("click", registerUser);
+    if (registerCancelBtn) registerCancelBtn.addEventListener("click", hideRegisterForm);
+    if (authSubmitBtn) authSubmitBtn.addEventListener("click", handleAuth);
+    if (bookSearchBtn) bookSearchBtn.addEventListener("click", searchBooks);
+    if (loanFinalizeBtn) loanFinalizeBtn.addEventListener("click", finalizeLoan);
+
+    if (adminTabManageBtn) adminTabManageBtn.addEventListener("click", () => showAdminTab("manage"));
+    if (adminTabLoansBtn) adminTabLoansBtn.addEventListener("click", () => showAdminTab("loans"));
+
+    if (bookSearchInput) {
+        bookSearchInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                searchBooks();
+            }
+        });
+    }
 }
 
 function init() {
+    const savedUser = localStorage.getItem(CURRENT_USER_KEY);
+    const savedRole = localStorage.getItem(CURRENT_USER_ROLE_KEY);
+    if (savedUser) {
+        currentUser = savedUser;
+        currentUserRole = savedRole || (savedUser === "admin" ? "admin" : "reader");
+        updateUserInfoUI();
+        toggleApp(true);
+    } else {
+        toggleApp(false);
+        updateUserInfoUI();
+    }
+
     initEventListeners();
     renderReadersList();
     renderLoansList();
